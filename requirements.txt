@@ -1,0 +1,7 @@
+Flask==2.3.2
+flask
+flask-sqlalchemy
+flask-migrate
+psycopg2-binary
+python-dotenv
+requests

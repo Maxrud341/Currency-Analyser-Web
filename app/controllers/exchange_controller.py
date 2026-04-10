@@ -5,8 +5,11 @@ import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from dotenv import load_dotenv
+from app.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger('exchange')
 
 exchange_bp = Blueprint('exchange', __name__, url_prefix='/exchange')
 
@@ -19,7 +22,7 @@ CACHE_MAX_AGE_DAYS = 7
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 
-# ─── кеш хелперы ────────────────────────────────────────────────────────────
+# ─── cache helpers ────────────────────────────────────────────────────────────
 
 def _cache_path(key: str) -> str:
     safe = key.replace('/', '_').replace('?', '_').replace('&', '_')
@@ -29,15 +32,19 @@ def _cache_path(key: str) -> str:
 def _load_cache(key: str):
     path = _cache_path(key)
     if not os.path.exists(path):
+        logger.debug('Cache miss: %s', key)
         return None
     try:
         with open(path, 'r') as f:
             cached = json.load(f)
         saved_at = datetime.fromisoformat(cached['_cached_at'])
         if datetime.now() - saved_at > timedelta(days=CACHE_MAX_AGE_DAYS):
+            logger.debug('Cache expired: %s', key)
             return None
+        logger.debug('Cache hit: %s', key)
         return cached['data']
-    except Exception:
+    except Exception as e:
+        logger.error('Cache read error [%s]: %s', key, e)
         return None
 
 
@@ -46,19 +53,12 @@ def _save_cache(key: str, data: dict):
     try:
         with open(path, 'w') as f:
             json.dump({'_cached_at': datetime.now().isoformat(), 'data': data}, f)
+        logger.debug('Cache saved: %s', key)
     except Exception as e:
-        _log_error(f'Cache save error: {e}')
+        logger.error('Cache save error [%s]: %s', key, e)
 
 
-# ─── логирование ошибок ──────────────────────────────────────────────────────
-
-def _log_error(message: str):
-    os.makedirs('logs', exist_ok=True)
-    with open('logs/errors.log', 'a') as f:
-        f.write(f'[{datetime.now().isoformat()}] {message}\n')
-
-
-# ─── запрос к API ────────────────────────────────────────────────────────────
+# ─── API request ──────────────────────────────────────────────────────────────
 
 def _fetch(endpoint: str, params: dict) -> dict | None:
     cache_key = endpoint + '_' + '_'.join(f'{k}{v}' for k, v in sorted(params.items()))
@@ -68,37 +68,41 @@ def _fetch(endpoint: str, params: dict) -> dict | None:
 
     params['access_key'] = API_KEY
     try:
+        safe_params = {k: v for k, v in params.items() if k != 'access_key'}
+        logger.info('API request: %s | params: %s', endpoint, safe_params)
         response = requests.get(f'{BASE_URL}/{endpoint}', params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         if not data.get('success', True):
             raise ValueError(data.get('error', {}).get('info', 'API error'))
+        logger.info('API success: %s', endpoint)
         _save_cache(cache_key, data)
         return data
     except Exception as e:
-        _log_error(f'API error [{endpoint}]: {e}')
+        logger.error('API error [%s]: %s', endpoint, e)
         return None
 
 
-# ─── эндпоинты ───────────────────────────────────────────────────────────────
+# ─── endpoints ────────────────────────────────────────────────────────────────
 
 # GET /exchange/latest?currencies=EUR,CZK,GBP
 @exchange_bp.route('/latest')
 def latest():
-    """Актуальные курсы выбранных валют относительно USD"""
     currencies = request.args.get('currencies', '')
+    logger.info('GET /latest | currencies: %s', currencies or 'all')
 
     data = _fetch('live', {
         'source': BASE_CURRENCY,
-        'currencies': currencies
+        **(({'currencies': currencies}) if currencies else {})
     })
 
     if not data:
-        return jsonify({'error': 'Не удалось получить данные, смотрите logs/errors.log'}), 502
+        logger.error('GET /latest failed | currencies: %s', currencies or 'all')
+        return jsonify({'error': 'Failed to fetch data, check logs/app.log'}), 502
 
     quotes = data.get('quotes', {})
-    # убираем префикс "USD" из ключей: USDEUR → EUR
     rates = {k[len(BASE_CURRENCY):]: v for k, v in quotes.items()}
+    logger.info('GET /latest success | returned %d currencies', len(rates))
 
     return jsonify({
         'base': BASE_CURRENCY,
@@ -110,10 +114,12 @@ def latest():
 # GET /exchange/strongest?currencies=EUR,CZK,GBP,JPY
 @exchange_bp.route('/strongest')
 def strongest():
-    """Самая сильная валюта (наибольшее значение курса) среди выбранных"""
     currencies = request.args.get('currencies', '')
+    logger.info('GET /strongest | currencies: %s', currencies)
+
     if not currencies:
-        return jsonify({'error': 'Параметр currencies обязателен'}), 400
+        logger.warning('GET /strongest | missing required parameter: currencies')
+        return jsonify({'error': 'Parameter currencies is required'}), 400
 
     data = _fetch('live', {
         'source': BASE_CURRENCY,
@@ -121,13 +127,17 @@ def strongest():
     })
 
     if not data:
-        return jsonify({'error': 'Не удалось получить данные'}), 502
+        logger.error('GET /strongest failed | currencies: %s', currencies)
+        return jsonify({'error': 'Failed to fetch data'}), 502
 
     rates = {k[len(BASE_CURRENCY):]: v for k, v in data.get('quotes', {}).items()}
+
     if not rates:
-        return jsonify({'error': 'Нет данных по выбранным валютам'}), 404
+        logger.warning('GET /strongest | no data for currencies: %s', currencies)
+        return jsonify({'error': 'No data for selected currencies'}), 404
 
     strongest_code = max(rates, key=lambda c: rates[c])
+    logger.info('GET /strongest success | result: %s = %s', strongest_code, rates[strongest_code])
 
     return jsonify({
         'base': BASE_CURRENCY,
@@ -142,10 +152,12 @@ def strongest():
 # GET /exchange/weakest?currencies=EUR,CZK,GBP,JPY
 @exchange_bp.route('/weakest')
 def weakest():
-    """Самая слабая валюта (наименьшее значение курса) среди выбранных"""
     currencies = request.args.get('currencies', '')
+    logger.info('GET /weakest | currencies: %s', currencies)
+
     if not currencies:
-        return jsonify({'error': 'Параметр currencies обязателен'}), 400
+        logger.warning('GET /weakest | missing required parameter: currencies')
+        return jsonify({'error': 'Parameter currencies is required'}), 400
 
     data = _fetch('live', {
         'source': BASE_CURRENCY,
@@ -153,13 +165,17 @@ def weakest():
     })
 
     if not data:
-        return jsonify({'error': 'Не удалось получить данные'}), 502
+        logger.error('GET /weakest failed | currencies: %s', currencies)
+        return jsonify({'error': 'Failed to fetch data'}), 502
 
     rates = {k[len(BASE_CURRENCY):]: v for k, v in data.get('quotes', {}).items()}
+
     if not rates:
-        return jsonify({'error': 'Нет данных по выбранным валютам'}), 404
+        logger.warning('GET /weakest | no data for currencies: %s', currencies)
+        return jsonify({'error': 'No data for selected currencies'}), 404
 
     weakest_code = min(rates, key=lambda c: rates[c])
+    logger.info('GET /weakest success | result: %s = %s', weakest_code, rates[weakest_code])
 
     return jsonify({
         'base': BASE_CURRENCY,
@@ -174,27 +190,32 @@ def weakest():
 # GET /exchange/average?currencies=EUR,CZK&date_from=2024-01-01&date_to=2024-01-31
 @exchange_bp.route('/average')
 def average():
-    """Среднеарифметический курс валют за период"""
     currencies = request.args.get('currencies', '')
     date_from  = request.args.get('date_from')
     date_to    = request.args.get('date_to')
+    logger.info('GET /average | currencies: %s | from: %s | to: %s', currencies, date_from, date_to)
 
     if not all([currencies, date_from, date_to]):
-        return jsonify({'error': 'Нужны параметры: currencies, date_from, date_to'}), 400
+        logger.warning('GET /average | missing parameters | currencies: %s | date_from: %s | date_to: %s',
+                        currencies, date_from, date_to)
+        return jsonify({'error': 'Required parameters: currencies, date_from, date_to'}), 400
 
     try:
         start = datetime.strptime(date_from, '%Y-%m-%d')
-        end   = datetime.strptime(date_to,   '%Y-%m-%d')
-    except ValueError:
-        return jsonify({'error': 'Формат дат: YYYY-MM-DD'}), 400
+        end   = datetime.strptime(date_to, '%Y-%m-%d')
+    except ValueError as e:
+        logger.warning('GET /average | invalid date format: %s', e)
+        return jsonify({'error': 'Date format must be YYYY-MM-DD'}), 400
 
     if start > end:
-        return jsonify({'error': 'date_from не может быть позже date_to'}), 400
+        logger.warning('GET /average | date_from (%s) is after date_to (%s)', date_from, date_to)
+        return jsonify({'error': 'date_from cannot be after date_to'}), 400
 
-    # собираем курсы по каждому дню
     sums   = {}
     counts = {}
     current = start
+    total_days = (end - start).days + 1
+    fetched_days = 0
 
     while current <= end:
         date_str = current.strftime('%Y-%m-%d')
@@ -205,18 +226,24 @@ def average():
         })
 
         if data:
+            fetched_days += 1
             quotes = data.get('quotes', {})
             for key, value in quotes.items():
                 code = key[len(BASE_CURRENCY):]
                 sums[code]   = sums.get(code, 0) + value
                 counts[code] = counts.get(code, 0) + 1
+        else:
+            logger.warning('GET /average | no data for date: %s — skipping', date_str)
 
         current += timedelta(days=1)
 
     if not sums:
-        return jsonify({'error': 'Нет данных за указанный период'}), 404
+        logger.error('GET /average | no data for entire period: %s — %s', date_from, date_to)
+        return jsonify({'error': 'No data for the given period'}), 404
 
     averages = {code: round(sums[code] / counts[code], 6) for code in sums}
+    logger.info('GET /average success | %d/%d days fetched | currencies: %s',
+                fetched_days, total_days, list(averages.keys()))
 
     return jsonify({
         'base': BASE_CURRENCY,

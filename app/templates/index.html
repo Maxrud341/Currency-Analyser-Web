@@ -15,7 +15,9 @@
   <div class="container">
     <header class="mb-3">
       <h1 class="h4 accent">Analýza měn</h1>
-      <p class="small-muted">Vyberte základní a cílovou měnu a délku období. Po kliknutí Vypočítat se zobrazí výsledky.</p>
+      <p class="small-muted">
+        Vyberte základní a cílovou měnu a délku období. Po kliknutí Vypočítat se zobrazí výsledky.
+      </p>
     </header>
 
     <div class="layout">
@@ -23,14 +25,16 @@
         <h2 class="h6">Nastavení</h2>
 
         <div class="mt-3">
-          <label class="form-label">Základní měna</label>
+          <label class="form-label">Z</label>
           <select id="baseCurrency" class="form-select"></select>
         </div>
 
         <div class="mt-3">
-          <label class="form-label">Cílová měna (jedna)</label>
+          <label class="form-label">Na</label>
           <select id="targetCurrency" class="form-select"></select>
-          <div class="small-muted mt-1">Vyberte jednu měnu, pro kterou se zobrazí průměr a graf.</div>
+          <div class="small-muted mt-1">
+            Vyberte jednu měnu, pro kterou se zobrazí průměr a graf.
+          </div>
         </div>
 
         <div class="mt-3">
@@ -58,18 +62,18 @@
 
         <div class="mb-3">
           <h3 class="h6">Graf kurzu</h3>
-          <canvas id="ratesChart" height="220"></canvas>
+          <canvas id="ratesChart"></canvas>
         </div>
 
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <h4 class="h6">Aritmetický průměr</h4>
-            <div id="avgBox" class="app-card" style="padding:12px;"></div>
+            <div id="avgBox" class="app-card"></div>
           </div>
 
           <div class="col-12 col-md-6">
             <h4 class="h6">Nejsilnější / Nejslabší</h4>
-            <div id="strongWeakBox" class="app-card" style="padding:12px;"></div>
+            <div id="strongWeakBox" class="app-card"></div>
           </div>
         </div>
 

@@ -117,11 +117,13 @@ async function calculate() {
     avgBox.innerHTML = `Error`;
   }
 
-  try {
-    const [s, w] = await Promise.all([
-      api(`/exchange/strongest?currencies=${allCurrenciesList}`),
-      api(`/exchange/weakest?currencies=${allCurrenciesList}`)
-    ]);
+    try {
+          const base = baseSelect.value;
+
+          const [s, w] = await Promise.all([
+            api(`/exchange/strongest?currencies=${allCurrenciesList}&base=${base}`),
+            api(`/exchange/weakest?currencies=${allCurrenciesList}&base=${base}`)
+      ]);
 
     const fmt = v => v < 0.0001 ? '>0.0001' : formatNumber(v);
 

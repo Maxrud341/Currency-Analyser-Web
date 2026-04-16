@@ -11,6 +11,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def get_logger(name: str) -> logging.Logger:
+    print("[INFO] Logger created: " + name)
     logger = logging.getLogger(name)
 
     if logger.handlers:

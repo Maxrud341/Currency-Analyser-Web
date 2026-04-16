@@ -7,6 +7,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - cache_data:/code/cache
+      - logs_data:/code/logs
     restart: unless-stopped
 
   db:
@@ -23,3 +26,5 @@ services:
 
 volumes:
   postgres_data:
+  cache_data:
+  logs_data:

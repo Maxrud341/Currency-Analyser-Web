@@ -1,12 +1,87 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="cs">
 <head>
-    <title>DB Test</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Analýza měn — Nastavení a Výsledky</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
-    <h1>Message from DB:</h1>
+  <div class="container">
+    <header class="mb-3">
+      <h1 class="h4 accent">Analýza měn</h1>
+      <p class="small-muted">Vyberte základní a cílovou měnu a délku období. Po kliknutí Vypočítat se zobrazí výsledky.</p>
+    </header>
 
-    <p>{{ message.text }}</p>
+    <div class="layout">
+      <section class="app-card panel">
+        <h2 class="h6">Nastavení</h2>
 
+        <div class="mt-3">
+          <label class="form-label">Základní měna</label>
+          <select id="baseCurrency" class="form-select"></select>
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Cílová měna (jedna)</label>
+          <select id="targetCurrency" class="form-select"></select>
+          <div class="small-muted mt-1">Vyberte jednu měnu, pro kterou se zobrazí průměr a graf.</div>
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Období</label>
+          <select id="period" class="form-select">
+            <option value="7" selected>Týden (7 dní)</option>
+            <option value="30">Měsíc (30 dní)</option>
+            <option value="365">Rok (365 dní)</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button id="btnCalculate" class="btn btn-accent">Vypočítat</button>
+          <button id="btnReset" class="btn btn-outline-secondary">Reset</button>
+          <div id="loading" class="ms-auto align-self-center d-none">
+            <div class="spinner-border spinner-border-sm spinner-border-accent"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="app-card results">
+        <h2 class="h6">Výsledky</h2>
+
+        <div id="resultSummary" class="mb-3"></div>
+
+        <div class="mb-3">
+          <h3 class="h6">Graf kurzu</h3>
+          <canvas id="ratesChart" height="220"></canvas>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <h4 class="h6">Aritmetický průměr</h4>
+            <div id="avgBox" class="app-card" style="padding:12px;"></div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <h4 class="h6">Nejsilnější / Nejslabší</h4>
+            <div id="strongWeakBox" class="app-card" style="padding:12px;"></div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <h4 class="h6">Raw data</h4>
+          <pre id="rawData" class="small-muted">—</pre>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/currency_analyser.js') }}"></script>
 </body>
 </html>

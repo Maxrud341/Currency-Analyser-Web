@@ -1,1 +1,2 @@
 docker exec -it sdis-project-web-1 sh
+docker compose up --build

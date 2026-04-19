@@ -1,82 +1,155 @@
-:root{
-  --accent: #0d6efd;
-  --accent-600: #0b5ed7;
-  --bg: #f6f9ff;
-  --card: #ffffff;
-  --muted: #6c757d;
-  --radius: 12px;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+/* ============================================================
+   ROOT VARIABLES
+   Defined design tokens for colors, spacing, and shadows.
+   ============================================================ */
+:root {
+  /* High-contrast Color Palette */
+  --color-bg-gradient-top: #f8fafc;
+  --color-bg-gradient-bottom: #e2e8f0;
+  --color-card-bg: #ffffff;
+  
+  --color-text-main: #1a202c;       /* Deep navy for better readability */
+  --color-text-muted: #4a5568;      /* Slate gray for secondary info */
+  
+  --color-accent: #0052cc;          /* Primary Blue (WCAG compliant contrast) */
+  --color-accent-dark: #0747a6;     /* Darker shade for hover/gradients */
+  --color-accent-soft: rgba(0, 82, 204, 0.08);
+  
+  /* Layout Constants */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 24px rgba(0, 82, 204, 0.08);
+  
+  /* Typography */
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-*{
+/* ============================================================
+   GLOBAL RESET
+   ============================================================ */
+* {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-body{
-  background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
-  padding: 20px;
-  color: #0b1a2b;
+body {
+  font-family: var(--font-main);
+  background: linear-gradient(180deg, var(--color-bg-gradient-top) 0%, var(--color-bg-gradient-bottom) 100%);
+  color: var(--color-text-main);
+  min-height: 100vh;
+  padding: 24px;
+  line-height: 1.5;
 }
 
-.app-card{
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(13,110,253,0.06);
-  padding: 18px;
-  margin-bottom: 18px;
-  min-height: 150px;
-}
-
-.accent { color: var(--accent); }
-
-.btn-accent{
-  background: linear-gradient(90deg,var(--accent),var(--accent-600));
-  border: none;
-  color: #fff;
-}
-
-.form-select, .form-control {
-  border-radius: 8px;
-}
-
-.small-muted {
-  color: var(--muted);
-  font-size: .9rem;
-}
-
+/* ============================================================
+   LAYOUT ENGINE
+   ============================================================ */
 .layout {
-  display:flex;
-  gap:18px;
-  align-items:flex-start;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
+/* Configuration sidebar */
 .panel {
-  flex:1;
-  min-width:280px;
+  flex: 1;
+  min-width: 300px;
 }
 
+/* Main content & visualization area */
 .results {
-  flex:1.4;
-  min-width:360px;
-  min-height: 600px;
+  flex: 1.6;
+  min-width: 400px;
 }
 
-@media (max-width: 900px){
-  .layout { flex-direction:column; }
-  .results { order:2 }
-  .panel { order:1 }
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+
+/* Main container for UI modules */
+.app-card {
+  background: var(--color-card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-.spinner-border-accent{
-  border-top-color: var(--accent);
+/* Accent utility class */
+.accent {
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
-canvas{
+/* High-contrast action button */
+.btn-accent {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.2s ease;
+}
+
+.btn-accent:hover {
+  opacity: 0.95;
+}
+
+.btn-accent:active {
+  transform: translateY(1px);
+}
+
+/* Input elements styling */
+.form-select, 
+.form-control {
+  border-radius: var(--radius-sm);
+  border: 1px solid #cbd5e0;
+  padding: 8px 12px;
+}
+
+/* Secondary descriptive text */
+.small-muted {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Customized spinner color */
+.spinner-border-accent {
+  color: var(--color-accent);
+}
+
+/* Chart.js container constraints */
+canvas {
   width: 100% !important;
-  height: 260px !important;
+  height: 280px !important;
   display: block;
 }
 
-#avgBox,
-#strongWeakBox,
-#resultSummary,
+/* ============================================================
+   RESPONSIVE DESIGN
+   ============================================================ */
+@media (max-width: 992px) {
+  .layout {
+    flex-direction: column;
+  }
+  
+  .panel, .results {
+    width: 100%;
+    min-width: 0;
+  }
+  
+  .panel {
+    order: 1;
+  }
+  
+  .results {
+    order: 2;
+  }
+}

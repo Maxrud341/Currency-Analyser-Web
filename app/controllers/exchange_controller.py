@@ -1,5 +1,7 @@
 import json
 import os
+import time
+
 import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
@@ -79,6 +81,8 @@ def _fetch_historical_day(date_str: str):
         }
 
         _save_cache(_daily_cache_key(date_str), result)
+        # Delay for API rate limits
+        time.sleep(1.1)
         return result
 
     except Exception as e:
@@ -93,7 +97,7 @@ def _get_today_rates():
 
 @exchange_bp.route('/latest')
 def latest():
-    logger.info(f"[LATEST] endpoint called query={request.args.to_dict()}")
+    logger.info(f"[LATEST] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()] if currencies_param else []
@@ -115,13 +119,13 @@ def latest():
         "rates": all_rates
     }
 
-    logger.info(f"[LATEST] response={response}")
+    logger.info(f"[LATEST] Success: Fetched latest rates for base {BASE_CURRENCY}")
     return jsonify(response)
 
 
 @exchange_bp.route('/strongest')
 def strongest():
-    logger.info(f"[STRONGEST] endpoint called query={request.args.to_dict()}")
+    logger.info(f"[STRONGEST] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     base = request.args.get('base', BASE_CURRENCY).upper()
@@ -162,13 +166,13 @@ def strongest():
         "all_rates": filtered
     }
 
-    logger.info(f"[STRONGEST] response={response}")
+    logger.info(f"[STRONGEST] Success: Strongest is {strongest_code} relative to {base}")
     return jsonify(response)
 
 
 @exchange_bp.route('/weakest')
 def weakest():
-    logger.info(f"[WEAKEST] endpoint called query={request.args.to_dict()}")
+    logger.info(f"[WEAKEST] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     base = request.args.get('base', BASE_CURRENCY).upper()
@@ -209,13 +213,13 @@ def weakest():
         "all_rates": filtered
     }
 
-    logger.info(f"[WEAKEST] response={response}")
+    logger.info(f"[WEAKEST] Success: Weakest is {weakest_code} relative to {base}")
     return jsonify(response)
 
 
 @exchange_bp.route('/historical-range')
 def historical_range():
-    logger.info(f"[HIST_RANGE] endpoint called query={request.args.to_dict()}")
+    logger.info(f"[HIST_RANGE] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     date_from = request.args.get('date_from')
@@ -256,8 +260,6 @@ def historical_range():
 
         current += timedelta(days=1)
 
-
-
     response = {
         "base": base,
         "target": target,
@@ -266,13 +268,13 @@ def historical_range():
         "rates": result
     }
 
-    logger.info(f"[HIST_RANGE] response={response}")
+    logger.info(f"[HIST_RANGE] Success: Historical range {date_from} to {date_to} for {target}/{base}")
     return jsonify(response)
 
 
 @exchange_bp.route('/average')
 def average():
-    logger.info(f"[AVERAGE] endpoint called query={request.args.to_dict()}")
+    logger.info(f"[AVERAGE] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     date_from = request.args.get('date_from')
@@ -322,5 +324,5 @@ def average():
         "averages": averages
     }
 
-    logger.info(f"[AVERAGE] response={response}")
+    logger.info(f"[AVERAGE] Success: Calculated averages for {len(averages)} currencies over period {date_from} to {date_to}")
     return jsonify(response)

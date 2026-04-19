@@ -7,5 +7,5 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route("/")
 def index():
-    message = Message.query.first()
-    return render_template("index.html", message=message)
+    # message = Message.query.first()
+    return render_template("index.html")

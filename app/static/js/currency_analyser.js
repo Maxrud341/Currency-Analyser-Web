@@ -162,7 +162,20 @@ function renderChart(labels, values, labelText) {
       plugins: {
         legend: {
           display: false
+        },
+        tooltip: {
+          callbacks: {
+            title: () => null,
+            label: function (context) {
+              return context.parsed.y.toFixed(3);
+            }
+          },
+          displayColors: false
         }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index',
       }
     }
   });

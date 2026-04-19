@@ -4,23 +4,28 @@
    ============================================================ */
 :root {
   /* High-contrast Color Palette */
-  --color-bg-gradient-top: #f8fafc;
-  --color-bg-gradient-bottom: #e2e8f0;
+  --color-bg-gradient-top: #d6d6d6;
+  --color-bg-gradient-bottom: #adbed6;
   --color-card-bg: #ffffff;
-  
-  --color-text-main: #1a202c;       /* Deep navy for better readability */
-  --color-text-muted: #4a5568;      /* Slate gray for secondary info */
-  
-  --color-accent: #0052cc;          /* Primary Blue (WCAG compliant contrast) */
-  --color-accent-dark: #0747a6;     /* Darker shade for hover/gradients */
+  --color-contrast-card-bg: #e8e8e8;
+
+  --color-text-main: #1a202c;
+  /* Deep navy for better readability */
+  --color-text-muted: #4a5568;
+  /* Slate gray for secondary info */
+
+  --color-accent: #0052cc;
+  /* Primary Blue (WCAG compliant contrast) */
+  --color-accent-dark: #0747a6;
+  /* Darker shade for hover/gradients */
   --color-accent-soft: rgba(0, 82, 204, 0.08);
-  
+
   /* Layout Constants */
   --radius-sm: 8px;
   --radius-md: 12px;
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 8px 24px rgba(0, 82, 204, 0.08);
-  
+
   /* Typography */
   --font-main: 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -40,6 +45,7 @@ body {
   color: var(--color-text-main);
   min-height: 100vh;
   padding: 24px;
+  padding-top: 80px;
   line-height: 1.5;
 }
 
@@ -49,7 +55,7 @@ body {
 .layout {
   display: flex;
   gap: 20px;
-  align-items: flex-start;
+  align-items: stretch;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -58,12 +64,17 @@ body {
 .panel {
   flex: 1;
   min-width: 300px;
+  min-height: 500px;
+  margin-bottom: 0;
 }
 
 /* Main content & visualization area */
 .results {
-  flex: 1.6;
-  min-width: 400px;
+  flex: 1;
+  min-width: 500px;
+  min-height: 500px;
+  margin-bottom: 0;
+
 }
 
 /* ============================================================
@@ -78,6 +89,10 @@ body {
   padding: 24px;
   margin-bottom: 20px;
   border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.app-card.contrast {
+  background: var(--color-contrast-card-bg);
 }
 
 /* Accent utility class */
@@ -107,7 +122,7 @@ body {
 }
 
 /* Input elements styling */
-.form-select, 
+.form-select,
 .form-control {
   border-radius: var(--radius-sm);
   border: 1px solid #cbd5e0;
@@ -139,17 +154,24 @@ canvas {
   .layout {
     flex-direction: column;
   }
-  
-  .panel, .results {
+
+  .panel,
+  .results {
     width: 100%;
     min-width: 0;
   }
-  
+
   .panel {
     order: 1;
   }
-  
+
   .results {
     order: 2;
   }
+}
+
+.site-header {
+  transition: transform 0.3s ease-in-out;
+  z-index: 1030;
+    overflow: visible !important;
 }

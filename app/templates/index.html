@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="cs">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -8,19 +9,54 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
 </head>
 
 <body>
   <div class="container">
-    <header class="mb-3">
-      <h1 class="h4 accent">Analýza měn</h1>
-      <p class="small-muted">
-        Vyberte základní a cílovou měnu a délku období. Po kliknutí Vypočítat se zobrazí výsledky.
-      </p>
+    <header class="site-header fixed-top bg-white border-bottom shadow-sm">
+      <div class="container d-flex align-items-center justify-content-between py-2">
+        <a href="/" class="d-flex align-items-center text-decoration-none text-dark">
+          <div
+            class="logo-placeholder bg-primary text-white rounded me-2 d-flex align-items-center justify-content-center"
+            style="width: 35px; height: 35px;">
+            <span class="fw-bold">A</span>
+          </div>
+          <span class="h5 mb-0 fw-bold">MěnováAnalýza</span>
+        </a>
+
+        <div class="d-flex align-items-center">
+          {% if current_user.is_authenticated %}
+          <div class="dropdown">
+            <button class="btn btn-outline-primary btn-sm px-4 rounded-pill dropdown-toggle" type="button" id="userMenu"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              {{ current_user.name }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2" aria-labelledby="userMenu">
+              <li>
+                <a class="dropdown-item d-flex align-items-center gap-2" href="/switch-user">
+                  <i class="bi bi-person-plus"></i> Přepnout uživatele
+                </a>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <a class="dropdown-item text-danger d-flex align-items-center gap-2" href="/logout">
+                  <i class="bi bi-box-arrow-right"></i> Odhlásit se
+                </a>
+              </li>
+            </ul>
+          </div>
+          {% else %}
+          <a href="/login" class="btn btn-outline-primary btn-sm px-4 rounded-pill">Přihlásit se</a>
+          {% endif %}
+        </div>
+      </div>
     </header>
 
     <div class="layout">
-      <section class="app-card panel">
+      <section class="app-card">
         <h2 class="h6">Nastavení</h2>
 
         <div class="mt-3">
@@ -29,11 +65,13 @@
         </div>
 
         <div class="d-flex justify-content-center my-2">
-          <button id="btnSwap" class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center"
-                  title="Prohodit měny"
-                  style="width: 32px; height: 32px; padding: 0;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="stroke: currentColor; stroke-width: 1.2;">
-              <path fill-rule="evenodd" d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5"/>
+          <button id="btnSwap"
+            class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center"
+            title="Prohodit měny" style="width: 32px; height: 32px; padding: 0; border-width: 2px;"> <svg
+              xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"
+              style="stroke: currentColor; stroke-width: 1.2;">
+              <path fill-rule="evenodd"
+                d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5" />
             </svg>
           </button>
         </div>
@@ -64,7 +102,7 @@
         </div>
       </section>
 
-      <aside class="app-card results">
+      <aside class="app-card">
 
         <div class="mb-3">
           <h3 class="h6">Graf kurzu</h3>
@@ -74,12 +112,12 @@
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <h4 class="h6">Aritmetický průměr</h4>
-            <div id="avgBox" class="app-card"></div>
+            <div id="avgBox" class="app-card contrast"></div>
           </div>
 
           <div class="col-12 col-md-6">
             <h4 class="h6">Nejsilnější / Nejslabší</h4>
-            <div id="strongWeakBox" class="app-card"></div>
+            <div id="strongWeakBox" class="app-card contrast"></div>
           </div>
         </div>
       </aside>
@@ -98,5 +136,14 @@
       target.value = temp;
     });
   </script>
+
+  <script>
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+  </script>
 </body>
+
 </html>

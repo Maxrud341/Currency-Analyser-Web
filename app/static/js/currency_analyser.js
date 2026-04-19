@@ -203,11 +203,20 @@ async function calculate() {
       api(`/exchange/weakest?currencies=${allCurrenciesList}&base=${base}`)
     ]);
 
-    const fmt = v => v < 0.0001 ? '>0.0001' : formatNumber(v);
+    const fmt = v => {
+      if (v < 0.0001) return '< 0.0001';
+      return v.toFixed(4);
+    };
 
     strongWeakBox.innerHTML = `
-      <div><strong>Strongest:</strong> ${s.strongest.currency} — ${fmt(s.strongest.rate)}</div>
-      <div><strong>Weakest:</strong> ${w.weakest.currency} — ${fmt(w.weakest.rate)}</div>
+      <div class="mb-3">
+        <strong>Strongest:</strong><br>
+        ${s.strongest.currency} — ${fmt(s.strongest.rate)}
+      </div>
+      <div>
+        <strong>Weakest:</strong><br>
+        ${w.weakest.currency} — ${fmt(w.weakest.rate)}
+      </div>
     `;
   } catch (e) {
     strongWeakBox.innerHTML = 'Error';

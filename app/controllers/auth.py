@@ -25,11 +25,12 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             logger.info(f"[LOGIN] SUCCESS: User {email} logged in")
+            # Можно добавить flash("Úspěšně přihlášen.", "success"), если нужно глобальное сообщение
             return redirect(url_for("main.index"))
 
-        # Если не нашли юзера или пароль не подошел
+        # Добавлен префикс 'login_' к категории
         logger.warning(f"[LOGIN] FAILED: Invalid credentials for {email}")
-        flash("Neplatný e-mail nebo heslo.", "danger")
+        flash("Neplatný e-mail nebo heslo.", "login_danger")
         return redirect(url_for("auth.login"))
 
     return render_template("login.html")
@@ -49,19 +50,18 @@ def register():
 
         logger.info(f"[REGISTER] Registration attempt for email: {email}")
 
-
         if password != confirm_password:
             logger.warning(f"[REGISTER] FAILED: Passwords mismatch for {email}")
-            flash("Hesla se neshodují!", "warning")
+            # Добавлен префикс 'register_'
+            flash("Hesla se neshodují!", "register_warning")
             return redirect(url_for("auth.register"))
-
 
         user_exists = User.query.filter_by(email=email).first()
         if user_exists:
             logger.warning(f"[REGISTER] FAILED: User {email} already exists")
-            flash("Uživatel s tímто e-mailem již existuje.", "info")
+            # Добавлен префикс 'register_'
+            flash("Uživatel s tímто e-mailem již existuje.", "register_info")
             return redirect(url_for("auth.register"))
-
 
         try:
             new_user = User(name=name, email=email)
@@ -70,19 +70,19 @@ def register():
             db.session.add(new_user)
             db.session.commit()
 
-
             login_user(new_user)
 
             logger.info(f"[REGISTER] SUCCESS: User {email} created and automatically logged in")
+            # Оставляем без префикса, так как редирект идет на главную страницу
             flash("Registrace byla úspěšná! Vítejte в systému.", "success")
 
-            # Перенаправляем на главную, так как мы уже вошли
             return redirect(url_for("main.index"))
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"[REGISTER] ERROR: Could not create user {email}. Exception: {str(e)}")
-            flash("Došlo k chybě při ukládání do databáze.", "danger")
+            # Добавлен префикс 'register_'
+            flash("Došlo k chybě při ukládání do databáze.", "register_danger")
             return redirect(url_for("auth.register"))
 
     return render_template("register.html")

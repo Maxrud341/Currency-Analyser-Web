@@ -17,6 +17,9 @@
   --color-accent: #0052cc;
   /* Primary Blue (WCAG compliant contrast) */
   --color-accent-dark: #0747a6;
+    --color-accent-light: #3888ff;
+    --color-accent-lighter: #7bb2ff;
+
   /* Darker shade for hover/gradients */
   --color-accent-soft: rgba(0, 82, 204, 0.08);
 
@@ -92,7 +95,9 @@ body {
 }
 
 .app-card.contrast {
-  background: var(--color-contrast-card-bg);
+  background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-accent-lighter) 100%);
+    color: #ffffff;
+    font-weight: 500;
 }
 
 /* Accent utility class */

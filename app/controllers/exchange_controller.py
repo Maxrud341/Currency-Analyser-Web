@@ -114,7 +114,10 @@ def latest():
         return jsonify({'error': 'Failed to fetch data'}), 502
 
     rates = data.get("rates", {})
-    all_rates = {c: rates.get(c) for c in currencies}
+    all_rates = rates.copy()
+
+    if currencies:
+        all_rates = {c: all_rates.get(c) for c in currencies}
 
     response = {
         "base": BASE_CURRENCY,

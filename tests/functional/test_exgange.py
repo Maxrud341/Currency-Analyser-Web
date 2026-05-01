@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import patch
 
-# Пример данных, которые как будто вернул твой кеш или API
 MOCK_RATES = {
     "timestamp": 1713871200,
     "rates": {
@@ -15,8 +14,7 @@ MOCK_RATES = {
 
 @patch('app.controllers.exchange_controller._get_today_rates')
 def test_latest_rates_success(mock_get_rates, client):
-    """Тест /latest: проверяем, что эндпоинт правильно отдает данные"""
-    # Настраиваем подмену: функция всегда возвращает наш MOCK_RATES
+    """Test /latest: ověřuje, že endpoint správně vrací data"""
     mock_get_rates.return_value = MOCK_RATES
 
     response = client.get('/exchange/latest?currencies=EUR,CZK')
@@ -26,34 +24,53 @@ def test_latest_rates_success(mock_get_rates, client):
     assert data['base'] == 'USD'
     assert data['rates']['EUR'] == 0.93
     assert data['rates']['CZK'] == 23.5
-    assert 'GBP' not in data['rates']  # Мы просили только EUR и CZK
+    assert 'GBP' not in data['rates']
 
 
 @patch('app.controllers.exchange_controller._get_today_rates')
 def test_strongest_currency(mock_get_rates, client):
-    """Тест /strongest: проверяем логику поиска самой сильной валюты"""
+    """Test /strongest: ověřuje logiku hledání nejsilnější měny"""
     mock_get_rates.return_value = MOCK_RATES
 
-    # Сравним EUR и CZK относительно USD
-    # Напомню: в твоей логике 1/rate. Чем меньше rate, тем сильнее валюта.
     response = client.get('/exchange/strongest?currencies=EUR,CZK&base=USD')
 
     assert response.status_code == 200
     data = response.get_json()
-    # EUR (0.93) сильнее чем CZK (23.5)
     assert data['strongest']['currency'] == 'EUR'
 
 
 @patch('app.controllers.exchange_controller._fetch_historical_day')
 def test_historical_range_limit_calls(mock_fetch, client):
-    """Проверка, что диапазон дат вызывает функцию нужное количество раз"""
+    """Ověřuje, že rozsah dat volá funkci správný početkrát"""
     mock_fetch.return_value = MOCK_RATES
 
     date_from = "2024-01-01"
-    date_to = "2024-01-03"  # 3 дня
+    date_to = "2024-01-03"
 
     response = client.get(f'/exchange/historical-range?currencies=EUR&date_from={date_from}&date_to={date_to}')
 
     assert response.status_code == 200
-    # Проверяем, что функция _fetch_historical_day была вызвана ровно 3 раза
     assert mock_fetch.call_count == 3
+
+
+@patch('app.controllers.exchange_controller._get_today_rates')
+def test_latest_rates_api_error(mock_get_rates, client):
+    """Test /latest: simuluje výpadek externího API a ověřuje zpracování chyby"""
+    mock_get_rates.side_effect = Exception("API Down")
+
+    response = client.get('/exchange/latest?currencies=EUR')
+
+    assert response.status_code == 502
+
+
+@patch('app.controllers.exchange_controller._fetch_historical_day')
+def test_historical_range_invalid_dates(mock_fetch, client):
+    """Ověřuje ošetření chyby, když je počáteční datum větší než koncové"""
+    date_from = "2024-01-05"
+    date_to = "2024-01-01"
+
+    response = client.get(f'/exchange/historical-range?currencies=EUR&date_from={date_from}&date_to={date_to}')
+
+    assert response.status_code == 400
+
+

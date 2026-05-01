@@ -1,7 +1,6 @@
 import json
 import os
 import time
-
 import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
@@ -11,7 +10,6 @@ from app.logger import get_logger
 load_dotenv()
 
 logger = get_logger('exchange')
-
 exchange_bp = Blueprint('exchange', __name__, url_prefix='/exchange')
 
 API_KEY = os.environ.get('EXCHANGERATE_HOST_KEY')
@@ -21,9 +19,11 @@ CACHE_DIR = 'cache'
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+
 def _cache_path(key: str) -> str:
     safe = key.replace('/', '_').replace('?', '_').replace('&', '_')
     return os.path.join(CACHE_DIR, f'{safe}.json')
+
 
 def _load_cache(key: str):
     path = _cache_path(key)
@@ -81,13 +81,11 @@ def _fetch_historical_day(date_str: str):
         }
 
         _save_cache(_daily_cache_key(date_str), result)
-        # Delay for API rate limits
         time.sleep(1.1)
         return result
-
     except Exception as e:
         logger.error(f"[HISTORICAL] request failed date={date_str} error={e}")
-        return None
+        raise e
 
 
 def _get_today_rates():
@@ -97,21 +95,26 @@ def _get_today_rates():
 
 @exchange_bp.route('/latest')
 def latest():
+    """Vrací aktuální kurzy pro zadané měny"""
     logger.info(f"[LATEST] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
     currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()] if currencies_param else []
 
-    data = _get_today_rates()
+
+
+    try:
+        data = _get_today_rates()
+    except Exception as e:
+        logger.error(f"[LATEST] API error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch data'}), 502
+
     if not data:
         logger.error("[LATEST] failed to fetch data")
         return jsonify({'error': 'Failed to fetch data'}), 502
 
     rates = data.get("rates", {})
-    all_rates = rates.copy()
-
-    if currencies:
-        all_rates = {c: all_rates.get(c) for c in currencies}
+    all_rates = {c: rates.get(c) for c in currencies}
 
     response = {
         "base": BASE_CURRENCY,
@@ -125,6 +128,7 @@ def latest():
 
 @exchange_bp.route('/strongest')
 def strongest():
+    """Hledá nejsilnější měnu z vybraného seznamu"""
     logger.info(f"[STRONGEST] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
@@ -132,178 +136,117 @@ def strongest():
 
     currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
     if not currencies:
-        logger.error("[STRONGEST] missing currencies")
-        return jsonify({'error': 'Parameter currencies is required'}), 400
+        return jsonify({'error': 'Parametr currencies je povinný'}), 400
 
-    data = _get_today_rates()
+    try:
+        data = _get_today_rates()
+    except Exception:
+        return jsonify({'error': 'Externí API je nedostupné'}), 500
+
     if not data:
-        logger.error("[STRONGEST] failed to fetch data")
-        return jsonify({'error': 'Failed to fetch data'}), 502
+        return jsonify({'error': 'Nepodařilo se získat data'}), 502
 
     rates = data.get("rates", {})
 
-    if base == BASE_CURRENCY:
-        filtered = {c: 1 / rates[c] for c in currencies if c in rates}
-    else:
-        base_rate = rates.get(base)
-        if not base_rate:
-            logger.error(f"[STRONGEST] invalid base={base}")
-            return jsonify({'error': 'Invalid base currency'}), 400
-        filtered = {c: base_rate / rates[c] for c in currencies if c in rates}
+    base_rate = rates.get(base)
+    if not base_rate:
+        return jsonify({'error': 'Neplatná základní měna'}), 400
+
+    filtered = {c: base_rate / rates[c] for c in currencies if c in rates and rates[c]}
 
     if not filtered:
-        logger.error("[STRONGEST] no valid currencies")
-        return jsonify({'error': 'No valid currencies provided'}), 400
+        return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400
 
     strongest_code = max(filtered, key=lambda c: filtered[c])
 
-    response = {
+    return jsonify({
         "base": base,
-        "strongest": {
-            "currency": strongest_code,
-            "rate": filtered[strongest_code]
-        },
+        "strongest": {"currency": strongest_code, "rate": filtered[strongest_code]},
         "all_rates": filtered
-    }
-
-    logger.info(f"[STRONGEST] Success: Strongest is {strongest_code} relative to {base}")
-    return jsonify(response)
-
-
-@exchange_bp.route('/weakest')
-def weakest():
-    logger.info(f"[WEAKEST] endpoint called")
-
-    currencies_param = request.args.get('currencies', '')
-    base = request.args.get('base', BASE_CURRENCY).upper()
-
-    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
-    if not currencies:
-        logger.error("[WEAKEST] missing currencies")
-        return jsonify({'error': 'Parameter currencies is required'}), 400
-
-    data = _get_today_rates()
-    if not data:
-        logger.error("[WEAKEST] failed to fetch data")
-        return jsonify({'error': 'Failed to fetch data'}), 502
-
-    rates = data.get("rates", {})
-
-    if base == BASE_CURRENCY:
-        filtered = {c: 1 / rates[c] for c in currencies if c in rates}
-    else:
-        base_rate = rates.get(base)
-        if not base_rate:
-            logger.error(f"[WEAKEST] invalid base={base}")
-            return jsonify({'error': 'Invalid base currency'}), 400
-        filtered = {c: base_rate / rates[c] for c in currencies if c in rates}
-
-    if not filtered:
-        logger.error("[WEAKEST] no valid currencies")
-        return jsonify({'error': 'No valid currencies provided'}), 400
-
-    weakest_code = min(filtered, key=lambda c: filtered[c])
-
-    response = {
-        "base": base,
-        "weakest": {
-            "currency": weakest_code,
-            "rate": filtered[weakest_code]
-        },
-        "all_rates": filtered
-    }
-
-    logger.info(f"[WEAKEST] Success: Weakest is {weakest_code} relative to {base}")
-    return jsonify(response)
+    })
 
 
 @exchange_bp.route('/historical-range')
 def historical_range():
+    """Vrací historické kurzy v zadaném časovém rozmezí"""
     logger.info(f"[HIST_RANGE] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
+    date_from_str = request.args.get('date_from')
+    date_to_str = request.args.get('date_to')
     base = request.args.get('base', BASE_CURRENCY).upper()
 
-    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
+    if not all([currencies_param, date_from_str, date_to_str]):
+        return jsonify({'error': 'Chybějící parametry'}), 400
 
+    try:
+        start = datetime.strptime(date_from_str, '%Y-%m-%d')
+        end = datetime.strptime(date_to_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Neplatný formát data'}), 400
+
+    if start > end:
+        return jsonify({'error': 'Počáteční datum musí být dříve než koncové'}), 400
+
+    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
     if len(currencies) != 1:
-        logger.error("[HIST_RANGE] invalid currencies count")
-        return jsonify({'error': 'Provide exactly one currency'}), 400
+        return jsonify({'error': 'Zadejte přesně jednu cílovou měnu'}), 400
 
     target = currencies[0]
-
-    start = datetime.strptime(date_from, '%Y-%m-%d')
-    end = datetime.strptime(date_to, '%Y-%m-%d')
-
     result = {}
     current = start
 
     while current <= end:
         date_str = current.strftime('%Y-%m-%d')
-        day_data = _fetch_historical_day(date_str)
-
-        if not day_data:
-            result[date_str] = None
-        else:
-            rates = day_data["rates"]
-            t = rates.get(target)
-
-            if target == base:
-                result[date_str] = 1.0
-            elif base == BASE_CURRENCY:
-                result[date_str] = t
+        try:
+            day_data = _fetch_historical_day(date_str)
+            if day_data:
+                rates = day_data["rates"]
+                t_val = rates.get(target)
+                b_val = rates.get(base)
+                result[date_str] = (t_val / b_val) if (t_val and b_val) else None
             else:
-                b = rates.get(base)
-                result[date_str] = (t / b) if (t and b) else None
-
+                result[date_str] = None
+        except Exception:
+            result[date_str] = None
         current += timedelta(days=1)
 
-    response = {
-        "base": base,
-        "target": target,
-        "date_from": date_from,
-        "date_to": date_to,
+    return jsonify({
+        "base": base, "target": target,
+        "date_from": date_from_str, "date_to": date_to_str,
         "rates": result
-    }
-
-    logger.info(f"[HIST_RANGE] Success: Historical range {date_from} to {date_to} for {target}/{base}")
-    return jsonify(response)
+    })
 
 
 @exchange_bp.route('/average')
 def average():
+    """Počítá průměrný kurz pro dané měny v časovém období"""
     logger.info(f"[AVERAGE] endpoint called")
 
     currencies_param = request.args.get('currencies', '')
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
+    date_from_str = request.args.get('date_from')
+    date_to_str = request.args.get('date_to')
     base = request.args.get('base', BASE_CURRENCY).upper()
 
+    try:
+        start = datetime.strptime(date_from_str, '%Y-%m-%d')
+        end = datetime.strptime(date_to_str, '%Y-%m-%d')
+        if start > end:
+            return jsonify({'error': 'Neplatné časové rozmezí'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Neplatné parametry data'}), 400
+
     currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
-
-    start = datetime.strptime(date_from, '%Y-%m-%d')
-    end = datetime.strptime(date_to, '%Y-%m-%d')
-
     sums = {c: 0.0 for c in currencies}
     counts = {c: 0 for c in currencies}
 
     current = start
     while current <= end:
         date_str = current.strftime('%Y-%m-%d')
-        day_data = _fetch_historical_day(date_str)
-
-        if day_data:
-            rates = day_data.get("rates", {})
-
-            if base == BASE_CURRENCY:
-                for c in currencies:
-                    v = rates.get(c)
-                    if v is not None:
-                        sums[c] += v
-                        counts[c] += 1
-            else:
+        try:
+            day_data = _fetch_historical_day(date_str)
+            if day_data:
+                rates = day_data.get("rates", {})
                 base_rate = rates.get(base)
                 if base_rate:
                     for c in currencies:
@@ -311,18 +254,12 @@ def average():
                         if t is not None:
                             sums[c] += t / base_rate
                             counts[c] += 1
-
+        except Exception:
+            pass
         current += timedelta(days=1)
 
     averages = {c: round(sums[c] / counts[c], 6) for c in currencies if counts[c] > 0}
-
-    response = {
-        "base": base,
-        "date_from": date_from,
-        "date_to": date_to,
-        "days_counted": counts,
-        "averages": averages
-    }
-
-    logger.info(f"[AVERAGE] Success: Calculated averages for {len(averages)} currencies over period {date_from} to {date_to}")
-    return jsonify(response)
+    return jsonify({
+        "base": base, "date_from": date_from_str, "date_to": date_to_str,
+        "days_counted": counts, "averages": averages
+    })

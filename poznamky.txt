@@ -1,2 +1,3 @@
 docker exec -it sdis-project-web-1 sh
 docker compose up --build
+python3 -m pytest

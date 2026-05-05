@@ -169,6 +169,47 @@ def strongest():
     })
 
 
+@exchange_bp.route('/weakest')
+def weakest():
+    logger.info(f"[WEAKEST] endpoint called")
+
+    currencies_param = request.args.get('currencies', '')
+    base = request.args.get('base', BASE_CURRENCY).upper()
+
+    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
+    if not currencies:
+        return jsonify({'error': 'Parametr currencies je povinný'}), 400
+
+    try:
+        data = _get_today_rates()
+    except Exception:
+        return jsonify({'error': 'Externí API je nedostupné'}), 500
+
+    if not data:
+        return jsonify({'error': 'Nepodařilo se získat data'}), 502
+
+    rates = data.get("rates", {})
+
+    base_rate = rates.get(base)
+    if not base_rate:
+        return jsonify({'error': 'Neplatná základní měna'}), 400
+
+    filtered = {c: base_rate / rates[c] for c in currencies if c in rates and rates[c]}
+
+    if not filtered:
+        return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400
+
+    weakest_code = min(filtered, key=lambda c: filtered[c])
+
+    return jsonify({
+        "base": base,
+        "weakest": {
+            "currency": weakest_code,
+            "rate": filtered[weakest_code]
+        },
+        "all_rates": filtered
+    })
+
 @exchange_bp.route('/historical-range')
 def historical_range():
     """Vrací historické kurzy v zadaném časovém rozmezí"""

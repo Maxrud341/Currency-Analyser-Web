@@ -38,6 +38,16 @@ def test_strongest_currency(mock_get_rates, client):
     data = response.get_json()
     assert data['strongest']['currency'] == 'EUR'
 
+@patch('app.controllers.exchange_controller._get_today_rates')
+def test_weakest_currency(mock_get_rates, client):
+    """Test /weakest: ověřuje logiku hledání nejslabší měny"""
+    mock_get_rates.return_value = MOCK_RATES
+
+    response = client.get('/exchange/weakest?currencies=EUR,CZK&base=USD')
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['weakest']['currency'] == 'CZK'
 
 @patch('app.controllers.exchange_controller._fetch_historical_day')
 def test_historical_range_limit_calls(mock_fetch, client):

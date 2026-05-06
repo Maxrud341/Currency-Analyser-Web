@@ -141,13 +141,22 @@
   <script src="{{ url_for('static', filename='js/currency_analyser.js') }}"></script>
 
   <script>
-    document.getElementById('btnSwap')?.addEventListener('click', () => {
-      const base = document.getElementById('baseCurrency');
-      const target = document.getElementById('targetCurrency');
-      const temp = base.value;
-      base.value = target.value;
-      target.value = temp;
-    });
+  document.getElementById('btnSwap')?.addEventListener('click', () => {
+    const base = document.getElementById('baseCurrency');
+    const target = document.getElementById('targetCurrency');
+
+    const temp = base.value;
+    base.value = target.value;
+    target.value = temp;
+
+    base.classList.add('swap-flash');
+    target.classList.add('swap-flash');
+
+    setTimeout(() => {
+      base.classList.remove('swap-flash');
+      target.classList.remove('swap-flash');
+    }, 300);
+  });
   </script>
 
   <script>

@@ -1,13 +1,13 @@
-// --- Konfigurace ---
+// ==========================================
+// 1. Konfigurace a DOM Elementy
+// ==========================================
 const API_PREFIX = '/exchange';
 const DEFAULT_PERIOD_DAYS = '7';
 const DEFAULT_BASE_CURRENCY = 'USD';
 const DEFAULT_TARGET_CURRENCY = 'CZK';
 const STORAGE_KEY = 'exchangeDashboardState';
 
-// --- DOM Elementy ---
 const $ = sel => document.querySelector(sel);
-
 const baseSelect = $('#baseCurrency');
 const targetSelect = $('#targetCurrency');
 const periodSelect = $('#period');
@@ -24,12 +24,13 @@ const compareCurrencySelect = $('#compareCurrencySelect');
 const btnAddCurrency = $('#btnAddCurrency');
 const comparisonTableBody = $('#comparisonTableBody');
 
-// --- Stav aplikace ---
 let chart = null;
-let comparedCurrencies = []; // Seznam měn pro tabulku
-let tableRates = {};         // Uložené kurzy pro zobrazení v tabulce
+let comparedCurrencies = [];
+let tableRates = {};
 
-// --- Pomocné funkce ---
+// ==========================================
+// 2. Pomocné funkce
+// ==========================================
 function showLoading(on) {
   loadingEl.classList.toggle('d-none', !on);
   btnCalculate.disabled = on;
@@ -56,7 +57,9 @@ function buildDateRange(days) {
   return { date_from: fmt(from), date_to: fmt(to) };
 }
 
-// --- Inicializace ---
+// ==========================================
+// 3. Inicializace a Vykreslování
+// ==========================================
 async function initCurrencyLists() {
   try {
     const codes = await api('/supported-currencies');
@@ -73,7 +76,6 @@ async function initCurrencyLists() {
   }
 }
 
-// --- Vykreslování grafu ---
 function renderChart(labels, values, labelText) {
   if (chart) {
     chart.data.labels = labels;
@@ -92,9 +94,7 @@ function renderChart(labels, values, labelText) {
         data: values,
         borderColor: '#0d6efd',
         backgroundColor: 'rgba(13,110,253,0.08)',
-        tension: 0.2,
-        pointRadius: 2,
-        fill: true
+        tension: 0.2, pointRadius: 2, fill: true
       }]
     },
     options: {
@@ -104,7 +104,6 @@ function renderChart(labels, values, labelText) {
   });
 }
 
-// --- Tabulka porovnání ---
 function renderTable() {
   if (comparedCurrencies.length === 0) {
     comparisonTableBody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">Žádné měny k porovnání</td></tr>`;
@@ -112,7 +111,7 @@ function renderTable() {
   }
 
   comparisonTableBody.innerHTML = comparedCurrencies.map(c => {
-    const val = tableRates[c] ? formatNumber(tableRates[c]) : '—';
+    const val = tableRates[c] ? formatNumber(tableRates[c]) : '<span class="spinner-border spinner-border-sm text-primary"></span>';
     return `
       <tr>
         <td>
@@ -127,22 +126,78 @@ function renderTable() {
   }).join('');
 }
 
-// Globální funkce pro smazání z tabulky přes HTML atribut onclick
-window.removeCurrency = function(code) {
-  comparedCurrencies = comparedCurrencies.filter(c => c !== code);
-  renderTable();
-};
+// ==========================================
+// 4. Logika tabulky (okamžitý výpočet)
+// ==========================================
 
-btnAddCurrency.onclick = () => {
+// Aktualizuje kurzy a nejsilnější/nejslabší měny z tabulky
+async function updateComparison() {
+  const base = baseSelect.value;
+
+  if (comparedCurrencies.length === 0) {
+    tableRates = {};
+    renderTable();
+    strongWeakBox.innerHTML = '<span class="text-muted">Přidejte měny do tabulky</span>';
+    return;
+  }
+
+  const currStr = comparedCurrencies.join(',');
+  try {
+    const [s, w] = await Promise.all([
+      api(`/strongest?currencies=${currStr}&base=${base}`),
+      api(`/weakest?currencies=${currStr}&base=${base}`)
+    ]);
+
+    tableRates = s.all_rates || {};
+    renderTable();
+
+    const fmt = v => (v < 0.0001 ? '< 0.0001' : formatNumber(v));
+strongWeakBox.innerHTML = `
+  <div class="sw-grid">
+    <div class="sw-row">
+      <span class="sw-label">Nejsilnější:</span>
+      <span class="badge bg-success sw-badge">${s.strongest.currency}</span>
+      <span class="sw-value">${fmt(s.strongest.rate)}</span>
+    </div>
+    <div class="sw-row">
+      <span class="sw-label">Nejslabší:</span>
+      <span class="badge bg-danger sw-badge">${w.weakest.currency}</span>
+      <span class="sw-value">${fmt(w.weakest.rate)}</span>
+    </div>
+  </div>
+`;
+  } catch (e) {
+    strongWeakBox.innerHTML = '<span class="text-danger">Chyba načítání</span>';
+  }
+}
+
+btnAddCurrency.onclick = async () => {
   const c = compareCurrencySelect.value;
   if (c && !comparedCurrencies.includes(c)) {
     comparedCurrencies.push(c);
-    renderTable();
+
+    renderTable(); // Zobrazí měnu s načítacím kolečkem
+    btnAddCurrency.disabled = true; // Ochrana proti spamu
+
+    await updateComparison(); // Okamžitý dotaz na API
+    saveState(chart?.data.labels || [], chart?.data.datasets[0].data || []); // Uložit do LS
+
+    btnAddCurrency.disabled = false;
   }
-  compareCurrencySelect.value = ""; // Reset výběru
+  compareCurrencySelect.value = "";
 };
 
-// --- Hlavní výpočet ---
+window.removeCurrency = async function(code) {
+  comparedCurrencies = comparedCurrencies.filter(c => c !== code);
+  delete tableRates[code];
+
+  await updateComparison(); // Přepočítá min/max bez smazané měny
+  saveState(chart?.data.labels || [], chart?.data.datasets[0].data || []);
+};
+
+// ==========================================
+// 5. Hlavní výpočet grafu a průměru
+// ==========================================
 async function calculate() {
   showLoading(true);
 
@@ -157,7 +212,7 @@ async function calculate() {
   try {
     const curr = await api(`/current?from=${base}&to=${target}`);
     currentRateBox.innerHTML = `
-      <div class="h5 mb-0 fw-bold">${formatNumber(curr.rate)}</div>
+      <div class="h5 mb-1 fw-bold">${formatNumber(curr.rate)}</div>
     `;
   } catch (e) {
     currentRateBox.innerHTML = '<span class="text-danger">Chyba</span>';
@@ -181,38 +236,16 @@ async function calculate() {
     avgBox.innerHTML = '<span class="text-danger">Chyba</span>';
   }
 
-  // 4. Tabulka & Nejsilnější/Nejslabší (Pouze pro měny v tabulce)
-  if (comparedCurrencies.length > 0) {
-    const currStr = comparedCurrencies.join(',');
-    try {
-      const [s, w] = await Promise.all([
-        api(`/strongest?currencies=${currStr}&base=${base}`),
-        api(`/weakest?currencies=${currStr}&base=${base}`)
-      ]);
-
-      // Aktualizace hodnot v tabulce pomocí dat z endpointu
-      tableRates = s.all_rates || {};
-      renderTable();
-
-      const fmt = v => (v < 0.0001 ? '< 0.0001' : formatNumber(v));
-      strongWeakBox.innerHTML = `
-        <div class="mb-2"><strong>Nejsilnější:</strong> <span class="badge bg-success">${s.strongest.currency}</span> ${fmt(s.strongest.rate)}</div>
-        <div><strong>Nejslabší:</strong> <span class="badge bg-danger">${w.weakest.currency}</span> ${fmt(w.weakest.rate)}</div>
-      `;
-    } catch (e) {
-      strongWeakBox.innerHTML = '<span class="text-danger">Chyba načítání</span>';
-    }
-  } else {
-    tableRates = {};
-    renderTable();
-    strongWeakBox.innerHTML = '<span class="text-muted">Přidejte měny do tabulky</span>';
-  }
+  // 4. Obnova tabulky (pokud byla např. změněna Base měna)
+  await updateComparison();
 
   saveState(chartLabels, chartValues);
   showLoading(false);
 }
 
-// --- Reset ---
+// ==========================================
+// 6. Reset a LocalStorage
+// ==========================================
 function resetForm() {
   periodSelect.value = DEFAULT_PERIOD_DAYS;
   comparedCurrencies = [];
@@ -232,7 +265,6 @@ function resetForm() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-// --- LocalStorage ---
 function saveState(labels, values) {
   const state = {
     base: baseSelect.value,
@@ -275,11 +307,13 @@ function loadState() {
   }
 }
 
-// --- Spuštění (Events) ---
+// ==========================================
+// 7. Spuštění
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
   await initCurrencyLists();
   loadState();
-  renderTable(); // Výchozí stav tabulky
+  renderTable();
 
   btnCalculate.onclick = calculate;
   btnReset.onclick = resetForm;

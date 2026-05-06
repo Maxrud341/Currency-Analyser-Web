@@ -1,23 +1,25 @@
 services:
   web:
+    command: ["python", "run.py"]
     build: .
     ports:
-      - "8080:8080"
-    env_file: .env
+      - "5000:5000"
+    env_file: .env.local
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - data:/code/data
+      - .:/code
+
     restart: unless-stopped
 
   db:
     image: postgres:15-alpine
-    env_file: .env
+    env_file: .env.local
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,4 +27,3 @@ services:
 
 volumes:
   postgres_data:
-  data:

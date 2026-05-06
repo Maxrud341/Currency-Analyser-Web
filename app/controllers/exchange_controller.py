@@ -129,6 +129,59 @@ def latest():
     return jsonify(response)
 
 
+@exchange_bp.route('/historical-range')
+def historical_range():
+    """Vrací historické kurzy v zadaném časovém rozmezí"""
+    logger.info(f"[HIST_RANGE] endpoint called")
+
+    currencies_param = request.args.get('currencies', '')
+    date_from_str = request.args.get('date_from')
+    date_to_str = request.args.get('date_to')
+    base = request.args.get('base', BASE_CURRENCY).upper()
+
+    if not all([currencies_param, date_from_str, date_to_str]):
+        return jsonify({'error': 'Chybějící parametry'}), 400
+
+    try:
+        start = datetime.strptime(date_from_str, '%Y-%m-%d')
+        end = datetime.strptime(date_to_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Neplatný formát data'}), 400
+
+    if start > end:
+        return jsonify({'error': 'Počáteční datum musí být dříve než koncové'}), 400
+
+    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
+    if len(currencies) != 1:
+        return jsonify({'error': 'Zadejte přesně jednu cílovou měnu'}), 400
+
+    target = currencies[0]
+    result = {}
+    current = start
+
+    while current <= end:
+        date_str = current.strftime('%Y-%m-%d')
+        try:
+            day_data = _fetch_historical_day(date_str)
+            if day_data:
+                rates = day_data["rates"]
+                t_val = rates.get(target)
+                b_val = rates.get(base)
+                result[date_str] = (t_val / b_val) if (t_val and b_val) else None
+            else:
+                result[date_str] = None
+        except Exception:
+            result[date_str] = None
+        current += timedelta(days=1)
+
+    return jsonify({
+        "base": base, "target": target,
+        "date_from": date_from_str, "date_to": date_to_str,
+        "rates": result
+    })
+
+
+
 @exchange_bp.route('/strongest')
 def strongest():
     """Hledá nejsilnější měnu z vybraného seznamu"""
@@ -210,56 +263,6 @@ def weakest():
         "all_rates": filtered
     })
 
-@exchange_bp.route('/historical-range')
-def historical_range():
-    """Vrací historické kurzy v zadaném časovém rozmezí"""
-    logger.info(f"[HIST_RANGE] endpoint called")
-
-    currencies_param = request.args.get('currencies', '')
-    date_from_str = request.args.get('date_from')
-    date_to_str = request.args.get('date_to')
-    base = request.args.get('base', BASE_CURRENCY).upper()
-
-    if not all([currencies_param, date_from_str, date_to_str]):
-        return jsonify({'error': 'Chybějící parametry'}), 400
-
-    try:
-        start = datetime.strptime(date_from_str, '%Y-%m-%d')
-        end = datetime.strptime(date_to_str, '%Y-%m-%d')
-    except ValueError:
-        return jsonify({'error': 'Neplatný formát data'}), 400
-
-    if start > end:
-        return jsonify({'error': 'Počáteční datum musí být dříve než koncové'}), 400
-
-    currencies = [c.strip().upper() for c in currencies_param.split(',') if c.strip()]
-    if len(currencies) != 1:
-        return jsonify({'error': 'Zadejte přesně jednu cílovou měnu'}), 400
-
-    target = currencies[0]
-    result = {}
-    current = start
-
-    while current <= end:
-        date_str = current.strftime('%Y-%m-%d')
-        try:
-            day_data = _fetch_historical_day(date_str)
-            if day_data:
-                rates = day_data["rates"]
-                t_val = rates.get(target)
-                b_val = rates.get(base)
-                result[date_str] = (t_val / b_val) if (t_val and b_val) else None
-            else:
-                result[date_str] = None
-        except Exception:
-            result[date_str] = None
-        current += timedelta(days=1)
-
-    return jsonify({
-        "base": base, "target": target,
-        "date_from": date_from_str, "date_to": date_to_str,
-        "rates": result
-    })
 
 
 @exchange_bp.route('/average')

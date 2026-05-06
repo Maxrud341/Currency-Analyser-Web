@@ -1,37 +1,36 @@
 // ==========================================
-// CONFIGURATION & CONSTANTS
+// 1. Konfigurace a DOM Elementy
 // ==========================================
-const API_PREFIX = '';
+const API_PREFIX = '/exchange';
 const DEFAULT_PERIOD_DAYS = '7';
 const DEFAULT_BASE_CURRENCY = 'USD';
 const DEFAULT_TARGET_CURRENCY = 'CZK';
-const STORAGE_KEY = 'exchangeDashboardState'; // Key for Local Storage
+const STORAGE_KEY = 'exchangeDashboardState';
 
-// ==========================================
-// DOM ELEMENTS
-// ==========================================
 const $ = sel => document.querySelector(sel);
-
 const baseSelect = $('#baseCurrency');
 const targetSelect = $('#targetCurrency');
 const periodSelect = $('#period');
 const btnCalculate = $('#btnCalculate');
 const btnReset = $('#btnReset');
 const loadingEl = $('#loading');
+
+const currentRateBox = $('#currentRateBox');
 const avgBox = $('#avgBox');
 const strongWeakBox = $('#strongWeakBox');
-const ctx = document.getElementById('ratesChart').getContext('2d');
+const ctx = $('#ratesChart').getContext('2d');
 
-// ==========================================
-// STATE VARIABLES
-// ==========================================
+const compareCurrencySelect = $('#compareCurrencySelect');
+const btnAddCurrency = $('#btnAddCurrency');
+const comparisonTableBody = $('#comparisonTableBody');
+
 let chart = null;
-let allCurrenciesList = [];
+let comparedCurrencies = [];
+let tableRates = {};
 
 // ==========================================
-// UTILITY FUNCTIONS
+// 2. Pomocné funkce
 // ==========================================
-
 function showLoading(on) {
   loadingEl.classList.toggle('d-none', !on);
   btnCalculate.disabled = on;
@@ -40,15 +39,12 @@ function showLoading(on) {
 
 function formatNumber(v) {
   if (v === null || v === undefined) return '—';
-  return Number(v).toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return Number(v).toLocaleString('cs-CZ', { maximumFractionDigits: 6 });
 }
 
 function api(path) {
   return fetch(API_PREFIX + path).then(async r => {
-    if (!r.ok) {
-      const text = await r.text().catch(() => '');
-      throw new Error(`${r.status} ${r.statusText} ${text}`);
-    }
+    if (!r.ok) throw new Error(`${r.status}`);
     return r.json();
   });
 }
@@ -62,77 +58,22 @@ function buildDateRange(days) {
 }
 
 // ==========================================
-// LOCAL STORAGE FUNCTIONS (NEW)
+// 3. Inicializace a Vykreslování
 // ==========================================
-
-/**
- * Saves current parameters and results to Local Storage
- */
-function saveState(chartLabels, chartValues) {
-  const state = {
-    base: baseSelect.value,
-    target: targetSelect.value,
-    period: periodSelect.value,
-    avgHtml: avgBox.innerHTML,
-    strongWeakHtml: strongWeakBox.innerHTML,
-    chartData: {
-      labels: chartLabels || (chart ? chart.data.labels : []),
-      values: chartValues || (chart ? chart.data.datasets[0].data : []),
-      label: `${targetSelect.value}/${baseSelect.value}`
-    }
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-/**
- * Loads saved parameters and restores the interface
- */
-function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return false;
-
-  try {
-    const state = JSON.parse(saved);
-
-    // Restore input values
-    baseSelect.value = state.base;
-    targetSelect.value = state.target;
-    periodSelect.value = state.period;
-
-    // Restore result text
-    avgBox.innerHTML = state.avgHtml;
-    strongWeakBox.innerHTML = state.strongWeakHtml;
-
-    // Restore chart if saved data exists
-    if (state.chartData && state.chartData.labels.length > 0) {
-      renderChart(state.chartData.labels, state.chartData.values, state.chartData.label);
-    }
-    return true;
-  } catch (e) {
-    console.error("Error reading from localStorage", e);
-    return false;
-  }
-}
-
-// ==========================================
-// CORE FUNCTIONS
-// ==========================================
-
 async function initCurrencyLists() {
-  const data = await api('/exchange/latest');
-  const rates = data.rates || {};
-  const codes = Object.keys(rates).sort();
+  try {
+    const codes = await api('/supported-currencies');
+    const optionsHtml = codes.map(c => `<option value="${c}">${c}</option>`).join('');
 
-  if (!codes.includes(data.base)) codes.unshift(data.base);
+    baseSelect.innerHTML = optionsHtml;
+    targetSelect.innerHTML = optionsHtml;
+    compareCurrencySelect.innerHTML = `<option value="" selected disabled>Vyberte měnu...</option>` + optionsHtml;
 
-  allCurrenciesList = codes;
-
-  const optionsHtml = codes.map(c => `<option value="${c}">${c}</option>`).join('');
-  baseSelect.innerHTML = optionsHtml;
-  targetSelect.innerHTML = optionsHtml;
-
-  baseSelect.value = codes.includes(DEFAULT_BASE_CURRENCY) ? DEFAULT_BASE_CURRENCY : (data.base || codes[0]);
-  targetSelect.value = codes.includes(DEFAULT_TARGET_CURRENCY) ? DEFAULT_TARGET_CURRENCY : codes[0];
+    baseSelect.value = codes.includes(DEFAULT_BASE_CURRENCY) ? DEFAULT_BASE_CURRENCY : codes[0];
+    targetSelect.value = codes.includes(DEFAULT_TARGET_CURRENCY) ? DEFAULT_TARGET_CURRENCY : codes[1];
+  } catch (e) {
+    console.error("Chyba načítání podporovaných měn", e);
+  }
 }
 
 function renderChart(labels, values, labelText) {
@@ -153,34 +94,110 @@ function renderChart(labels, values, labelText) {
         data: values,
         borderColor: '#0d6efd',
         backgroundColor: 'rgba(13,110,253,0.08)',
-        tension: 0.2,
-        pointRadius: 2,
-        fill: true
+        tension: 0.2, pointRadius: 2, fill: true
       }]
     },
     options: {
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          callbacks: {
-            title: () => null,
-            label: function (context) {
-              return context.parsed.y.toFixed(3);
-            }
-          },
-          displayColors: false
-        }
-      },
-      interaction: {
-        intersect: false,
-        mode: 'index',
-      }
+      plugins: { legend: { display: false } },
+      interaction: { intersect: false, mode: 'index' }
     }
   });
 }
 
+function renderTable() {
+  if (comparedCurrencies.length === 0) {
+    comparisonTableBody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">Žádné měny k porovnání</td></tr>`;
+    return;
+  }
+
+  comparisonTableBody.innerHTML = comparedCurrencies.map(c => {
+    const val = tableRates[c] ? formatNumber(tableRates[c]) : '<span class="spinner-border spinner-border-sm text-primary"></span>';
+    return `
+      <tr>
+        <td>
+          <div class="d-flex justify-content-between align-items-center">
+            ${c}
+            <button class="btn btn-sm text-danger py-0 px-1 border-0" onclick="removeCurrency('${c}')">✕</button>
+          </div>
+        </td>
+        <td class="fw-medium">${val}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ==========================================
+// 4. Logika tabulky (okamžitý výpočet)
+// ==========================================
+
+// Aktualizuje kurzy a nejsilnější/nejslabší měny z tabulky
+async function updateComparison() {
+  const base = baseSelect.value;
+
+  if (comparedCurrencies.length === 0) {
+    tableRates = {};
+    renderTable();
+    strongWeakBox.innerHTML = '<span class="text-muted">Přidejte měny do tabulky</span>';
+    return;
+  }
+
+  const currStr = comparedCurrencies.join(',');
+  try {
+    const [s, w] = await Promise.all([
+      api(`/strongest?currencies=${currStr}&base=${base}`),
+      api(`/weakest?currencies=${currStr}&base=${base}`)
+    ]);
+
+    tableRates = s.all_rates || {};
+    renderTable();
+
+    const fmt = v => (v < 0.0001 ? '< 0.0001' : formatNumber(v));
+strongWeakBox.innerHTML = `
+  <div class="sw-grid">
+    <div class="sw-row">
+      <span class="sw-label">Nejsilnější:</span>
+      <span class="badge bg-success sw-badge">${s.strongest.currency}</span>
+      <span class="sw-value">${fmt(s.strongest.rate)}</span>
+    </div>
+    <div class="sw-row">
+      <span class="sw-label">Nejslabší:</span>
+      <span class="badge bg-danger sw-badge">${w.weakest.currency}</span>
+      <span class="sw-value">${fmt(w.weakest.rate)}</span>
+    </div>
+  </div>
+`;
+  } catch (e) {
+    strongWeakBox.innerHTML = '<span class="text-danger">Chyba načítání</span>';
+  }
+}
+
+btnAddCurrency.onclick = async () => {
+  const c = compareCurrencySelect.value;
+  if (c && !comparedCurrencies.includes(c)) {
+    comparedCurrencies.push(c);
+
+    renderTable(); // Zobrazí měnu s načítacím kolečkem
+    btnAddCurrency.disabled = true; // Ochrana proti spamu
+
+    await updateComparison(); // Okamžitý dotaz na API
+    saveState(chart?.data.labels || [], chart?.data.datasets[0].data || []); // Uložit do LS
+
+    btnAddCurrency.disabled = false;
+  }
+  compareCurrencySelect.value = "";
+};
+
+window.removeCurrency = async function(code) {
+  comparedCurrencies = comparedCurrencies.filter(c => c !== code);
+  delete tableRates[code];
+
+  await updateComparison(); // Přepočítá min/max bez smazané měny
+  saveState(chart?.data.labels || [], chart?.data.datasets[0].data || []);
+};
+
+// ==========================================
+// 5. Hlavní výpočet grafu a průměru
+// ==========================================
 async function calculate() {
   showLoading(true);
 
@@ -189,68 +206,53 @@ async function calculate() {
   const days = Number(periodSelect.value);
   const { date_from, date_to } = buildDateRange(days);
 
-  // Variables to store chart data for saving later
-  let chartLabels = [];
-  let chartValues = [];
+  let chartLabels = [], chartValues = [];
 
+  // 1. Aktuální kurz
   try {
-    const hist = await api(`/exchange/historical-range?currencies=${target}&base=${base}&date_from=${date_from}&date_to=${date_to}`);
+    const curr = await api(`/current?from=${base}&to=${target}`);
+    currentRateBox.innerHTML = `
+      <div class="h5 mb-1 fw-bold">${formatNumber(curr.rate)}</div>
+    `;
+  } catch (e) {
+    currentRateBox.innerHTML = '<span class="text-danger">Chyba</span>';
+  }
+
+  // 2. Historie (Graf)
+  try {
+    const hist = await api(`/historical-range?currencies=${target}&base=${base}&date_from=${date_from}&date_to=${date_to}`);
     chartLabels = Object.keys(hist.rates || {}).sort();
     chartValues = chartLabels.map(d => hist.rates[d]);
     renderChart(chartLabels, chartValues, `${target}/${base}`);
   } catch (e) {
-    showLoading(false);
-    return;
+    console.error("Chyba grafu", e);
   }
 
+  // 3. Průměr
   try {
-    const avg = await api(`/exchange/average?currencies=${target}&base=${base}&date_from=${date_from}&date_to=${date_to}`);
-    avgBox.innerHTML = `<div class="h5">${formatNumber(avg.averages?.[target])}</div>`;
+    const avg = await api(`/average?currencies=${target}&base=${base}&date_from=${date_from}&date_to=${date_to}`);
+    avgBox.innerHTML = `<div class="h5 mb-0 fw-bold">${formatNumber(avg.averages?.[target])}</div>`;
   } catch (e) {
-    avgBox.innerHTML = `Error`;
+    avgBox.innerHTML = '<span class="text-danger">Chyba</span>';
   }
 
-  try {
-    const [s, w] = await Promise.all([
-      api(`/exchange/strongest?currencies=${allCurrenciesList}&base=${base}`),
-      api(`/exchange/weakest?currencies=${allCurrenciesList}&base=${base}`)
-    ]);
+  // 4. Obnova tabulky (pokud byla např. změněna Base měna)
+  await updateComparison();
 
-    const fmt = v => {
-      if (v < 0.0001) return '< 0.0001';
-      return v.toFixed(4);
-    };
-
-    strongWeakBox.innerHTML = `
-      <div class="mb-3">
-        <strong>Strongest:</strong><br>
-        ${s.strongest.currency} — ${fmt(s.strongest.rate)}
-      </div>
-      <div>
-        <strong>Weakest:</strong><br>
-        ${w.weakest.currency} — ${fmt(w.weakest.rate)}
-      </div>
-    `;
-  } catch (e) {
-    strongWeakBox.innerHTML = 'Error';
-  }
-
-  // Save all calculations and settings after successful execution
   saveState(chartLabels, chartValues);
-
   showLoading(false);
 }
 
+// ==========================================
+// 6. Reset a LocalStorage
+// ==========================================
 function resetForm() {
   periodSelect.value = DEFAULT_PERIOD_DAYS;
-
-  const baseOptions = Array.from(baseSelect.options);
-  baseSelect.value = baseOptions.some(o => o.value === DEFAULT_BASE_CURRENCY) ? DEFAULT_BASE_CURRENCY : baseOptions[0].value;
-
-  const targetOptions = Array.from(targetSelect.options);
-  targetSelect.value = targetOptions.some(o => o.value === DEFAULT_TARGET_CURRENCY) ? DEFAULT_TARGET_CURRENCY : targetOptions[0].value;
+  comparedCurrencies = [];
+  tableRates = {};
 
   avgBox.innerHTML = '';
+  currentRateBox.innerHTML = '';
   strongWeakBox.innerHTML = '';
 
   if (chart) {
@@ -259,19 +261,59 @@ function resetForm() {
     chart.update();
   }
 
-  // Clear Local Storage on reset
+  renderTable();
   localStorage.removeItem(STORAGE_KEY);
 }
 
+function saveState(labels, values) {
+  const state = {
+    base: baseSelect.value,
+    target: targetSelect.value,
+    period: periodSelect.value,
+    compared: comparedCurrencies,
+    rates: tableRates,
+    currHtml: currentRateBox.innerHTML,
+    avgHtml: avgBox.innerHTML,
+    swHtml: strongWeakBox.innerHTML,
+    chart: { labels, values, label: `${targetSelect.value}/${baseSelect.value}` }
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return;
+
+  try {
+    const s = JSON.parse(saved);
+    baseSelect.value = s.base;
+    targetSelect.value = s.target;
+    periodSelect.value = s.period;
+
+    comparedCurrencies = s.compared || [];
+    tableRates = s.rates || {};
+
+    currentRateBox.innerHTML = s.currHtml || '';
+    avgBox.innerHTML = s.avgHtml || '';
+    strongWeakBox.innerHTML = s.swHtml || '';
+
+    renderTable();
+
+    if (s.chart && s.chart.labels && s.chart.labels.length > 0) {
+      renderChart(s.chart.labels, s.chart.values, s.chart.label);
+    }
+  } catch (e) {
+    console.error("Chyba při čtení z localStorage", e);
+  }
+}
+
 // ==========================================
-// INITIALIZATION & EVENT LISTENERS
+// 7. Spuštění
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // First, load the currency list so the selects are populated with options
   await initCurrencyLists();
-
-  // Attempt to load state. If it doesn't exist, default values remain
   loadState();
+  renderTable();
 
   btnCalculate.onclick = calculate;
   btnReset.onclick = resetForm;

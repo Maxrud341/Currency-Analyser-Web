@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from dotenv import load_dotenv
 from app.logger import get_logger
+from flask_login import login_required
 
 load_dotenv()
 
@@ -16,6 +17,8 @@ API_KEY = os.environ.get('EXCHANGERATE_HOST_KEY')
 BASE_URL = 'https://api.exchangerate.host'
 BASE_CURRENCY = 'USD'
 CACHE_DIR = 'data/cache'
+SUPPORTED_CURRENCIES = ["CZK", "AUD", "CAD", "CHF", "CNY", "DKK", "EUR", "GBP", "HKD", "HUF", "ILS", "JPY", "KRW", "MXN", "NOK", "NZD", "PLN", "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR"]
+
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -94,6 +97,7 @@ def _get_today_rates():
 
 
 @exchange_bp.route('/latest')
+@login_required
 def latest():
     """Vrací aktuální kurzy pro zadané měny"""
     logger.info(f"[LATEST] endpoint called")
@@ -130,6 +134,7 @@ def latest():
 
 
 @exchange_bp.route('/historical-range')
+@login_required
 def historical_range():
     """Vrací historické kurzy v zadaném časovém rozmezí"""
     logger.info(f"[HIST_RANGE] endpoint called")
@@ -183,6 +188,7 @@ def historical_range():
 
 
 @exchange_bp.route('/strongest')
+@login_required
 def strongest():
     """Hledá nejsilnější měnu z vybraného seznamu"""
     logger.info(f"[STRONGEST] endpoint called")
@@ -223,6 +229,7 @@ def strongest():
 
 
 @exchange_bp.route('/weakest')
+@login_required
 def weakest():
     logger.info(f"[WEAKEST] endpoint called")
 
@@ -266,6 +273,7 @@ def weakest():
 
 
 @exchange_bp.route('/average')
+@login_required
 def average():
     """Počítá průměrný kurz pro dané měny v časovém období"""
     logger.info(f"[AVERAGE] endpoint called")
@@ -310,3 +318,57 @@ def average():
         "base": base, "date_from": date_from_str, "date_to": date_to_str,
         "days_counted": counts, "averages": averages
     })
+
+
+@exchange_bp.route('/current')
+@login_required
+def current():
+    """Vrací aktuální kurz z jedné měny na druhou (Z -> NA)"""
+    logger.info(f"[CURRENT] endpoint called")
+
+
+    base = request.args.get('from', BASE_CURRENCY).upper()
+    target = request.args.get('to')
+
+    if not target:
+        return jsonify({'error': 'Chybí cílová měna (parametr "to")'}), 400
+
+    target = target.upper()
+
+    try:
+        data = _get_today_rates()
+    except Exception as e:
+        logger.error(f"[CURRENT] API error: {str(e)}")
+        return jsonify({'error': 'Nepodařilo se získat data z externí API'}), 502
+
+    if not data:
+        return jsonify({'error': 'Data nejsou k dispozici'}), 502
+
+    rates = data.get("rates", {})
+
+
+    val_from = rates.get(base)
+    val_to = rates.get(target)
+
+    if val_from is None or val_to is None:
+        return jsonify({'error': f'Neplatný kód měny: {base if val_from is None else target}'}), 400
+
+
+    current_rate = val_to / val_from
+
+    return jsonify({
+        "from": base,
+        "to": target,
+        "rate": round(current_rate, 6),
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "timestamp": data.get("timestamp")
+    })
+
+
+@exchange_bp.route('/supported-currencies', methods=['GET'])
+@login_required
+def get_supported_currencies():
+    """Vrací seznam všech podporovaných kódů měn"""
+    logger.info(f"[CURRENCIES] Fetching supported currencies list")
+
+    return jsonify(SUPPORTED_CURRENCIES)

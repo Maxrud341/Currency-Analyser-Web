@@ -11,8 +11,8 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     """Handle user login."""
-    if current_user.is_authenticated:
-        return redirect(url_for("main.index"))
+    # if current_user.is_authenticated :
+    #     return redirect(url_for("main.index"))
 
     if request.method == "POST":
         email = request.form.get("email")
@@ -23,6 +23,7 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
+            logout_user()
             login_user(user)
             logger.info(f"[LOGIN] SUCCESS: User {email} logged in")
             return redirect(url_for("main.index"))
@@ -93,9 +94,8 @@ def logout():
     user_email = current_user.email
     logout_user()
     logger.info(f"[LOGOUT] User {user_email} logged out")
-    return redirect(url_for("main.index"))
+    return redirect(url_for("auth.login"))
 
 @auth_bp.route("/switch-user")
 def switch_user():
-    logout_user()
     return redirect(url_for("auth.login"))

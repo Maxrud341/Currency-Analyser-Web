@@ -15,7 +15,7 @@ exchange_bp = Blueprint('exchange', __name__, url_prefix='/exchange')
 API_KEY = os.environ.get('EXCHANGERATE_HOST_KEY')
 BASE_URL = 'https://api.exchangerate.host'
 BASE_CURRENCY = 'USD'
-CACHE_DIR = 'cache'
+CACHE_DIR = 'data/cache'
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 

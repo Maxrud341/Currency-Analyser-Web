@@ -3,7 +3,7 @@ import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
 
-LOG_DIR = 'logs'
+LOG_DIR = 'data/logs'
 LOG_FORMAT = '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 

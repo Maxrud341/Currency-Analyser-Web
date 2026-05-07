@@ -214,7 +214,7 @@ def strongest():
     if not base_rate:
         return jsonify({'error': 'Neplatná základní měna'}), 400
 
-    filtered = {c: base_rate / rates[c] for c in currencies if c in rates and rates[c]}
+    filtered = {c: 1 / (base_rate / rates[c]) for c in currencies if c in rates and rates[c]}
 
     if not filtered:
         return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400
@@ -254,7 +254,7 @@ def weakest():
     if not base_rate:
         return jsonify({'error': 'Neplatná základní měna'}), 400
 
-    filtered = {c: base_rate / rates[c] for c in currencies if c in rates and rates[c]}
+    filtered = {c: 1 / (base_rate / rates[c]) for c in currencies if c in rates and rates[c]}
 
     if not filtered:
         return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400

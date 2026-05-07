@@ -142,35 +142,55 @@ async function updateComparison() {
   }
 
   const currStr = comparedCurrencies.join(',');
+
   try {
-    const [s, w] = await Promise.all([
-      api(`/strongest?currencies=${currStr}&base=${base}`),
-      api(`/weakest?currencies=${currStr}&base=${base}`)
+
+    const currentRatePromises = comparedCurrencies.map(c =>
+      api(`/current?from=${base}&to=${c}`)
+    );
+
+
+    const [[s, w], currentRates] = await Promise.all([
+      Promise.all([
+        api(`/strongest?currencies=${currStr}&base=${base}`),
+        api(`/weakest?currencies=${currStr}&base=${base}`)
+      ]),
+      Promise.all(currentRatePromises)
     ]);
 
-    tableRates = s.all_rates || {};
+
+    tableRates = {};
+    currentRates.forEach(result => {
+
+      if (result && result.rate) {
+        tableRates[result.to] = result.rate;
+      }
+    });
+
+
     renderTable();
 
+
     const fmt = v => (v < 0.0001 ? '< 0.0001' : formatNumber(v));
-strongWeakBox.innerHTML = `
-  <div class="sw-grid">
-    <div class="sw-row">
-      <span class="sw-label">Nejsilnější:</span>
-      <span class="badge bg-success sw-badge">${s.strongest.currency}</span>
-      <span class="sw-value">${fmt(s.strongest.rate)}</span>
-    </div>
-    <div class="sw-row">
-      <span class="sw-label">Nejslabší:</span>
-      <span class="badge bg-danger sw-badge">${w.weakest.currency}</span>
-      <span class="sw-value">${fmt(w.weakest.rate)}</span>
-    </div>
-  </div>
-`;
+    strongWeakBox.innerHTML = `
+      <div class="sw-grid">
+        <div class="sw-row">
+          <span class="sw-label">Nejsilnější:</span>
+          <span class="badge bg-success sw-badge">${s.strongest.currency}</span>
+          <span class="sw-value">${fmt(s.strongest.rate)}</span>
+        </div>
+        <div class="sw-row">
+          <span class="sw-label">Nejslabší:</span>
+          <span class="badge bg-danger sw-badge">${w.weakest.currency}</span>
+          <span class="sw-value">${fmt(w.weakest.rate)}</span>
+        </div>
+      </div>
+    `;
   } catch (e) {
+    console.error("Chyba při načítání tabulky:", e);
     strongWeakBox.innerHTML = '<span class="text-danger">Chyba načítání</span>';
   }
 }
-
 btnAddCurrency.onclick = async () => {
   const c = compareCurrencySelect.value;
   if (c && !comparedCurrencies.includes(c)) {

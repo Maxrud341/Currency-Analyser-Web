@@ -1,1 +1,1 @@
-[![Coverage](https://github.com/<OWNER>/<REPO>/actions/workflows/tests.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/tests.yml)
+[Coverage Report](https://github.com/Maxrud341/Currency-Analyser-Web/actions/workflows/tests.yml)

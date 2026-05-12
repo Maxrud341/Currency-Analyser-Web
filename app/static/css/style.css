@@ -148,7 +148,6 @@ body {
 /* Chart.js container constraints */
 canvas {
   width: 100% !important;
-  height: 280px !important;
   display: block;
 }
 

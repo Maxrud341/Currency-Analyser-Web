@@ -4,13 +4,13 @@ from app.models.user import User
 
 
 @pytest.fixture
-def app():
+def app(monkeypatch):
     """Vytvoří instanci aplikace pro testy."""
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
     app = create_app()
 
     app.config.update({
         "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,
     })
 

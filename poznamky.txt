@@ -2,3 +2,5 @@ docker exec -it sdis-project-web-1 sh
 docker compose up --build
 python3 -m pytest
 python3 -m pytest --cov=app --cov-report=term > coverage.txt
+python3 -m pytest --cov=app
+python3 -m pytest --cov=app --cov-report=html

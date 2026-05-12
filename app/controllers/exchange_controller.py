@@ -219,7 +219,7 @@ def strongest():
     if not filtered:
         return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400
 
-    strongest_code = max(filtered, key=lambda c: filtered[c])
+    strongest_code = min(filtered, key=lambda c: filtered[c])
 
     return jsonify({
         "base": base,
@@ -259,7 +259,7 @@ def weakest():
     if not filtered:
         return jsonify({'error': 'Nebyly poskytnuty žádné platné měny'}), 400
 
-    weakest_code = min(filtered, key=lambda c: filtered[c])
+    weakest_code = max(filtered, key=lambda c: filtered[c])
 
     return jsonify({
         "base": base,

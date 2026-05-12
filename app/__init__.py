@@ -37,7 +37,8 @@ def create_app():
 
     logger.info('Blueprints registered')
 
+    if app.config.get('TESTING') or app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        with app.app_context():
+            db.create_all()
 
-    with app.app_context():
-        db.create_all()
     return app

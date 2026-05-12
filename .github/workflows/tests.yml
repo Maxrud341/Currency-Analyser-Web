@@ -3,7 +3,7 @@ name: Pytest Coverage
 on: [pull_request, push]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:

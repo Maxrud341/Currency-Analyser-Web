@@ -1,15 +1,16 @@
+## Test Coverage
 
-============================= test session starts ==============================
-platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
-rootdir: /home/runner/work/Currency-Analyser-Web/Currency-Analyser-Web
-plugins: cov-7.1.0
-collected 37 items
+| File                                   | Stmts | Miss | Cover |
+|----------------------------------------|------:|-----:|------:|
+| app/__init__.py                        |    28 |    0 | 100%  |
+| app/auth_manager.py                    |    10 |    0 | 100%  |
+| app/controllers/auth.py                |    67 |    6 | 91%   |
+| app/controllers/exchange_controller.py|   237 |   34 | 86%   |
+| app/controllers/main.py                |     8 |    0 | 100%  |
+| app/logger.py                          |    24 |    1 | 96%   |
+| app/models/message.py                  |     4 |    0 | 100%  |
+| app/models/user.py                     |    14 |    0 | 100%  |
+| **TOTAL**                              | **392** | **41** | **90%** |
 
-tests/functional/test_auth.py ...........                                [ 29%]
-tests/functional/test_exgange.py ..........................              [100%]
-
-================================ tests coverage ================================
-_______________ coverage: platform linux, python 3.10.20-final-0 _______________
-
-Coverage XML written to file coverage.xml
-============================== 37 passed in 8.35s ==============================
+**Tests:** 37 passed  
+**Time:** 9.88s

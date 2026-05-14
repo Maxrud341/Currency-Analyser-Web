@@ -2,4 +2,4 @@
 
 ## Coverage
 
-Coverage: coming soon
+![Coverage](coverage.svg)

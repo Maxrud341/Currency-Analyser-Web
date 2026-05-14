@@ -1,5 +1,4 @@
 # Project
 
-## Coverage
+Hello world
 
-![Coverage](coverage.svg)

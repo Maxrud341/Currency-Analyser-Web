@@ -1,5 +1,5 @@
- # Project
+# Project
 
 ## Coverage
 
-![Coverage](coverage.svg)
+Coverage: coming soon

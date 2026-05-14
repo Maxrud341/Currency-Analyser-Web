@@ -32,7 +32,11 @@ jobs:
 
       - name: Update README with coverage badge
         run: |
-          grep -q "coverage.svg" README.md || sed -i '1i![Coverage](coverage.svg)' README.md
+          if [ ! -f README.md ]; then
+            echo "# Project" > README.md
+          fi
+
+          grep -q "coverage.svg" README.md || echo -e "\n![Coverage](coverage.svg)" >> README.md
 
       - name: Pytest coverage comment
         id: coverageComment

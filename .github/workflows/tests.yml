@@ -23,9 +23,39 @@ jobs:
 
       - name: Build coverage file
         run: |
-          python3 -m pytest --cov=app --cov-report=xml
+          python3 -m pytest --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Update README with coverage percent
+        run: |
+          if [ ! -f README.md ]; then
+            echo "# Project" > README.md
+          fi
+
+          pip install coverage
+
+          python - << 'EOF'
+          import xml.etree.ElementTree as ET
+
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+
+          percent = float(root.attrib.get("line-rate", 0)) * 100
+          percent = round(percent, 2)
+
+          with open("README.md", "r") as f:
+              lines = f.readlines()
+
+          # remove old coverage line if exists
+          lines = [l for l in lines if "Coverage:" not in l]
+
+          lines.append(f"\nCoverage: {percent}%\n")
+
+          with open("README.md", "w") as f:
+              f.writelines(lines)
+          EOF
 
       - name: Pytest coverage comment
+        id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -34,4 +64,4 @@ jobs:
           badge-title: Coverage
           hide-badge: false
           hide-report: false
-          create-new-comment: true 
+          create-new-comment: true

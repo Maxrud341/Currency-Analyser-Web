@@ -25,8 +25,17 @@ jobs:
         run: |
           python3 -m pytest --cov=app --cov-report=xml --cov-report=term-missing
 
+      - name: Generate coverage badge
+        run: |
+          pip install genbadge[coverage]
+          genbadge coverage -i coverage.xml -o coverage.svg
+
+      - name: Update README with coverage badge
+        run: |
+          grep -q "coverage.svg" README.md || sed -i '1i![Coverage](coverage.svg)' README.md
+
       - name: Pytest coverage comment
-        id: coverageComment 
+        id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -35,5 +44,4 @@ jobs:
           badge-title: Coverage
           hide-badge: false
           hide-report: false
-          create-new-comment: true 
-
+          create-new-comment: true

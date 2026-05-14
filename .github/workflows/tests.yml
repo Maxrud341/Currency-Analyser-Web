@@ -23,9 +23,10 @@ jobs:
 
       - name: Build coverage file
         run: |
-          python3 -m pytest --cov=app --cov-report=xml
+          python3 -m pytest --cov=app --cov-report=xml --cov-report=term-missing
 
       - name: Pytest coverage comment
+        id: coverageComment 
         uses: MishaKav/pytest-coverage-comment@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -35,3 +36,6 @@ jobs:
           hide-badge: false
           hide-report: false
           create-new-comment: true 
+
+      - name: Print Coverage Percentage
+        run: echo "Coverage Percentage: ${{ steps.coverageComment.outputs.coverage }}%"

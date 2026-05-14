@@ -37,5 +37,3 @@ jobs:
           hide-report: false
           create-new-comment: true 
 
-      - name: Print Coverage Percentage
-        run: echo "Coverage Percentage: ${{ steps.coverageComment.outputs.coverage }}%"
